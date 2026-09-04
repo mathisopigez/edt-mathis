@@ -20,12 +20,16 @@
     --teal:#0F6E63;    /* TD */
     --amber:#9C6B0B;   /* TP */
     --rust:#A5342A;    /* examens / now-line */
-    --violet:#5B4B8A;  /* autres */
+    --violet:#5B4B8A;  /* autres, o0 */
     --slate-bg:#E7EAF1;
     --teal-bg:#E1EFEC;
     --amber-bg:#F3EBDA;
     --rust-bg:#F3E1DE;
     --violet-bg:#E9E5F2;
+    --o1:#9C5B2E; --o1-bg:#F1E2D2;      /* sienna */
+    --o2:#5E7A3D; --o2-bg:#E7EEDD;      /* moss */
+    --o3:#3E4B8A; --o3-bg:#E1E3F3;      /* indigo */
+    --o4:#A24B67; --o4-bg:#F3E1E7;      /* rose */
     --radius:3px;
     --shadow:0 1px 2px rgba(28,29,33,.06);
   }
@@ -82,6 +86,28 @@
   button.ghost{background:transparent; border-color:transparent; color:var(--ink-soft);}
   button.ghost:hover{color:var(--ink); border-color:var(--line-strong);}
   #file-input{display:none;}
+
+  .menu-wrap{position:relative;}
+  .menu-panel{
+    position:absolute; top:calc(100% + 6px); right:0;
+    background:var(--paper-raised);
+    border:1px solid var(--line-strong);
+    border-radius:4px;
+    box-shadow:0 4px 14px rgba(28,29,33,.12);
+    display:flex; flex-direction:column;
+    min-width:200px;
+    z-index:50;
+    overflow:hidden;
+  }
+  .menu-panel[hidden]{display:none;}
+  .menu-item{
+    border:none; background:transparent; border-radius:0;
+    text-align:left; padding:10px 14px;
+    font-size:13px;
+  }
+  .menu-item:hover{background:var(--paper);}
+  .menu-item.danger{color:var(--rust);}
+  .menu-item + .menu-item{border-top:1px solid var(--line);}
 
   .legend{
     display:flex; gap:12px; flex-wrap:wrap;
@@ -182,7 +208,11 @@
   .event.type-td{border-left-color:var(--teal); background:var(--teal-bg);}
   .event.type-tp{border-left-color:var(--amber); background:var(--amber-bg);}
   .event.type-exam{border-left-color:var(--rust); background:var(--rust-bg);}
-  .event.type-other{border-left-color:var(--violet); background:var(--violet-bg);}
+  .event.type-o0{border-left-color:var(--violet); background:var(--violet-bg);}
+  .event.type-o1{border-left-color:var(--o1); background:var(--o1-bg);}
+  .event.type-o2{border-left-color:var(--o2); background:var(--o2-bg);}
+  .event.type-o3{border-left-color:var(--o3); background:var(--o3-bg);}
+  .event.type-o4{border-left-color:var(--o4); background:var(--o4-bg);}
 
   /* ---------- mobile agenda ---------- */
   .agenda-wrap{display:block;}
@@ -223,7 +253,11 @@
   .a-card.type-td{border-left-color:var(--teal);}
   .a-card.type-tp{border-left-color:var(--amber);}
   .a-card.type-exam{border-left-color:var(--rust);}
-  .a-card.type-other{border-left-color:var(--violet);}
+  .a-card.type-o0{border-left-color:var(--violet);}
+  .a-card.type-o1{border-left-color:var(--o1);}
+  .a-card.type-o2{border-left-color:var(--o2);}
+  .a-card.type-o3{border-left-color:var(--o3);}
+  .a-card.type-o4{border-left-color:var(--o4);}
   .a-time{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-soft); margin-bottom:3px;}
   .a-name{font-family:'Fraunces',serif; font-weight:600; font-size:15px; margin-bottom:2px;}
   .a-loc{font-size:12.5px; color:var(--ink-soft);}
@@ -254,9 +288,15 @@
       <button id="btn-today">Aujourd'hui</button>
       <button class="icon ghost" id="btn-next" title="Semaine suivante" aria-label="Semaine suivante">›</button>
     </div>
-    <button class="primary" id="btn-import">Importer un .ics</button>
-    <button id="btn-save" style="display:none;" title="Télécharge une copie de cette page avec le planning intégré dedans : à réouvrir directement, sans jamais réimporter.">💾 Enregistrer le fichier</button>
-    <button class="ghost" id="btn-clear" style="display:none;">Tout effacer</button>
+    <button class="primary" id="btn-import-empty" style="display:none;">Importer un .ics</button>
+    <div class="menu-wrap" id="menu-wrap" style="display:none;">
+      <button class="icon ghost" id="btn-menu" aria-haspopup="true" aria-expanded="false" title="Options">⋯</button>
+      <div class="menu-panel" id="menu-panel" hidden>
+        <button id="btn-import" class="menu-item">Importer un autre .ics</button>
+        <button id="btn-save" class="menu-item" title="Télécharge une copie de cette page avec le planning intégré dedans : à réouvrir directement, sans jamais réimporter.">Enregistrer le fichier</button>
+        <button id="btn-clear" class="menu-item danger">Tout effacer</button>
+      </div>
+    </div>
     <input type="file" id="file-input" accept=".ics,text/calendar">
   </div>
   <div class="legend" id="legend" style="display:none;">
@@ -264,7 +304,7 @@
     <span><i style="background:var(--teal)"></i>TD</span>
     <span><i style="background:var(--amber)"></i>TP</span>
     <span><i style="background:var(--rust)"></i>Examen / DS</span>
-    <span><i style="background:var(--violet)"></i>Autre</span>
+    <span>Autres matières : une couleur par nom de cours</span>
   </div>
 </header>
 
@@ -290,7 +330,7 @@
 </main>
 
 <footer class="hint" id="footer-hint" style="display:none;">
-  Astuce : si tu héberges cette page sur un site (GitHub Pages, Netlify…) et que tu déposes à côté un fichier nommé <strong>planning.ics</strong>, elle se charge automatiquement au démarrage sur tous les appareils — pas besoin d'importer quoi que ce soit. Pour mettre à jour l'emploi du temps, remplace juste ce fichier planning.ics dans l'hébergement. Le bouton « Importer un .ics » reste utile en local (sans hébergement), et « Enregistrer le fichier » intègre le planning courant dans une copie du HTML.
+  mathisopigez.github.io/edt-mathis
 </footer>
 
 <script id="embedded-events" type="application/json">[]</script>
@@ -391,13 +431,20 @@
     return events.filter(function(e){ return e.start; });
   }
 
+  function hashColorKey(str){
+    var s = (str||"").toUpperCase().trim();
+    var h = 0;
+    for (var i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) >>> 0; }
+    var palette = ["o0","o1","o2","o3","o4"];
+    return palette[h % palette.length];
+  }
   function classify(summary){
     var s = (summary||"").toUpperCase();
-    if (/\bCM\b/.test(s)) return "cm";
-    if (/\bTD\b/.test(s)) return "td";
-    if (/\bTP\b/.test(s)) return "tp";
-    if (/\b(EXAM|DS|CC|CONTROLE|CONTRÔLE|PARTIEL)\b/.test(s)) return "exam";
-    return "other";
+    if (/(^|[^A-ZÀ-Ý])CM([^A-ZÀ-Ý]|$)/.test(s)) return "cm";
+    if (/(^|[^A-ZÀ-Ý])TD([^A-ZÀ-Ý]|$)/.test(s)) return "td";
+    if (/(^|[^A-ZÀ-Ý])TP([^A-ZÀ-Ý]|$)/.test(s)) return "tp";
+    if (/(^|[^A-ZÀ-Ý])(EXAM|DS|CC|CONTROLE|CONTRÔLE|PARTIEL)([^A-ZÀ-Ý]|$)/.test(s)) return "exam";
+    return hashColorKey(summary);
   }
 
   // ---------------- storage ----------------
@@ -498,7 +545,9 @@
     footerHint: document.getElementById("footer-hint"),
     btnClear: document.getElementById("btn-clear"),
     btnSave: document.getElementById("btn-save"),
-    hostedNote: document.getElementById("hosted-note")
+    hostedNote: document.getElementById("hosted-note"),
+    menuWrap: document.getElementById("menu-wrap"),
+    btnImportEmpty: document.getElementById("btn-import-empty")
   };
 
   var selectedDayIdx = null;
@@ -516,6 +565,8 @@
     els.footerHint.style.display = hasData ? "block" : "none";
     els.btnClear.style.display = hasData ? "inline-block" : "none";
     els.btnSave.style.display = hasData ? "inline-block" : "none";
+    els.menuWrap.style.display = hasData ? "block" : "none";
+    els.btnImportEmpty.style.display = hasData ? "none" : "inline-block";
     if (!hasData){
       els.weekLabel.textContent = "";
       els.gridWrap.innerHTML = "";
@@ -578,7 +629,7 @@
         var eH = e.end.getHours()+e.end.getMinutes()/60;
         if (eH<=hMin) eH=hMin+0.5;
         var top = Math.max(0,(sH-hMin))*ROW_HOUR_PX;
-        var height = Math.max(24,(eH-sH))*ROW_HOUR_PX;
+        var height = Math.max(24,(eH-sH)*ROW_HOUR_PX);
         var type = classify(e.summary);
         inner += '<div class="event type-'+type+'" style="top:'+top+'px;height:'+height+'px;">'+
                  '<div class="t">'+fmtTime(e.start)+'–'+fmtTime(e.end)+'</div>'+
@@ -677,6 +728,10 @@
   }
 
   document.getElementById("btn-import").addEventListener("click", function(){
+    closeMenu();
+    document.getElementById("file-input").click();
+  });
+  document.getElementById("btn-import-empty").addEventListener("click", function(){
     document.getElementById("file-input").click();
   });
   document.getElementById("file-input").addEventListener("change", function(e){
@@ -686,8 +741,12 @@
   document.getElementById("dropzone").addEventListener("click", function(){
     document.getElementById("file-input").click();
   });
-  document.getElementById("btn-save").addEventListener("click", downloadWithEmbeddedData);
+  document.getElementById("btn-save").addEventListener("click", function(){
+    closeMenu();
+    downloadWithEmbeddedData();
+  });
   document.getElementById("btn-clear").addEventListener("click", function(){
+    closeMenu();
     if (confirm("Supprimer tous les événements importés ?")){
       state.events = [];
       localStorage.removeItem(LS_KEY);
@@ -717,6 +776,24 @@
     document.getElementById("dropzone").classList.remove("drag");
     if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
   });
+
+  // ---------------- menu ⋯ ----------------
+  var menuPanel = document.getElementById("menu-panel");
+  var btnMenu = document.getElementById("btn-menu");
+  function closeMenu(){
+    menuPanel.hidden = true;
+    btnMenu.setAttribute("aria-expanded","false");
+  }
+  function toggleMenu(){
+    var willOpen = menuPanel.hidden;
+    menuPanel.hidden = !willOpen;
+    btnMenu.setAttribute("aria-expanded", willOpen ? "true" : "false");
+  }
+  btnMenu.addEventListener("click", function(e){ e.stopPropagation(); toggleMenu(); });
+  document.addEventListener("click", function(e){
+    if (!menuPanel.hidden && !menuPanel.contains(e.target) && e.target!==btnMenu) closeMenu();
+  });
+  document.addEventListener("keydown", function(e){ if (e.key==="Escape") closeMenu(); });
 
   // ---------------- fichier .ics hébergé à côté de la page ----------------
   var HOSTED_ICS_NAME = "planning.ics";
