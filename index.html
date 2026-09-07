@@ -289,14 +289,14 @@
       <button class="icon ghost" id="btn-next" title="Semaine suivante" aria-label="Semaine suivante">›</button>
     </div>
     <button class="primary" id="btn-import-empty" style="display:none;">Importer un .ics</button>
-    <!--<div class="menu-wrap" id="menu-wrap" style="display:none;">
+    <div class="menu-wrap" id="menu-wrap" style="display:none;">
       <button class="icon ghost" id="btn-menu" aria-haspopup="true" aria-expanded="false" title="Options">⋯</button>
       <div class="menu-panel" id="menu-panel" hidden>
         <button id="btn-import" class="menu-item">Importer un autre .ics</button>
         <button id="btn-save" class="menu-item" title="Télécharge une copie de cette page avec le planning intégré dedans : à réouvrir directement, sans jamais réimporter.">Enregistrer le fichier</button>
         <button id="btn-clear" class="menu-item danger">Tout effacer</button>
       </div>
-    </div>-->
+    </div>
     <input type="file" id="file-input" accept=".ics,text/calendar">
   </div>
   <div class="legend" id="legend" style="display:none;">
@@ -330,7 +330,7 @@
 </main>
 
 <footer class="hint" id="footer-hint" style="display:none;">
-  mathisopigez.github.io/edt-mathis
+  Astuce : si tu héberges cette page sur un site (GitHub Pages, Netlify…) et que tu déposes à côté un fichier nommé <strong>planning.ics</strong>, elle se charge automatiquement au démarrage sur tous les appareils — pas besoin d'importer quoi que ce soit. Pour mettre à jour l'emploi du temps, remplace juste ce fichier planning.ics dans l'hébergement. Le bouton « Importer un .ics » reste utile en local (sans hébergement), et « Enregistrer le fichier » intègre le planning courant dans une copie du HTML.
 </footer>
 
 <script id="embedded-events" type="application/json">[]</script>
@@ -808,14 +808,55 @@
       .catch(function(){ return []; });
   }
 
+  // ---------------- flux ADE en direct (URL d'abonnement iCal) ----------------
+  // Colle ici l'URL générée par ADE via "Export Agenda" (icône calendrier+flèche
+  // en bas de la liste des ressources sur ade-consult.univ-artois.fr). Laisse
+  // vide ("") pour désactiver cette source et rester sur planning.ics / import manuel.
+  var ADE_ICS_URL = "";
+
+  // De nombreux serveurs ADE bloquent les requêtes directes depuis un navigateur
+  // (CORS). On tente d'abord en direct, puis on bascule automatiquement sur un
+  // relais public si besoin. Le flux transite alors brièvement par ce relais tiers.
+  var CORS_PROXIES = [
+    function(u){ return u; }, // direct, sans relais
+    function(u){ return "https://api.allorigins.win/raw?url=" + encodeURIComponent(u); },
+    function(u){ return "https://corsproxy.io/?url=" + encodeURIComponent(u); }
+  ];
+
+  function loadADEIcs(){
+    if (!ADE_ICS_URL) return Promise.resolve({events:[], error:null});
+    var bust = ADE_ICS_URL + (ADE_ICS_URL.indexOf("?")>-1 ? "&" : "?") + "_=" + Date.now();
+
+    function tryProxy(i){
+      if (i>=CORS_PROXIES.length) return Promise.resolve({events:[], error:"unreachable"});
+      var url = CORS_PROXIES[i](bust);
+      return fetch(url, {cache:"no-store"})
+        .then(function(res){
+          if (!res.ok) throw new Error("http "+res.status);
+          return res.text();
+        })
+        .then(function(text){
+          var events = parseICS(text);
+          if (!events.length) throw new Error("empty");
+          return {events:events, error:null};
+        })
+        .catch(function(){ return tryProxy(i+1); });
+    }
+    return tryProxy(0);
+  }
+
   // ---------------- init ----------------
   (function init(){
     state.events = loadEmbeddedEvents();
     mergeEvents(loadEvents());
 
-    loadHostedICS().then(function(hosted){
+    Promise.all([loadHostedICS(), loadADEIcs()]).then(function(results){
+      var hosted = results[0];
+      var ade = results[1];
       var fromHostedFile = hosted.length>0;
+      var fromADE = ade.events.length>0;
       if (fromHostedFile) mergeEvents(hosted);
+      if (fromADE) mergeEvents(ade.events);
       if (state.events.length) saveEvents();
       if (state.events.length){
         var now = new Date();
@@ -823,7 +864,18 @@
                                     .sort(function(a,b){return a.start-b.start;})[0];
         state.weekStart = mondayOf(upcoming ? upcoming.start : state.events[0].start);
       }
-      els.hostedNote.style.display = fromHostedFile ? "block" : "none";
+      if (fromADE){
+        els.hostedNote.textContent = "📡 Planning synchronisé en direct depuis ADE";
+        els.hostedNote.style.display = "block";
+      } else if (ADE_ICS_URL && ade.error){
+        els.hostedNote.textContent = "⚠ Connexion à ADE impossible pour le moment — planning.ics utilisé si disponible";
+        els.hostedNote.style.display = "block";
+      } else if (fromHostedFile){
+        els.hostedNote.textContent = "📡 Planning synchronisé depuis planning.ics";
+        els.hostedNote.style.display = "block";
+      } else {
+        els.hostedNote.style.display = "none";
+      }
       render();
     });
   })();
